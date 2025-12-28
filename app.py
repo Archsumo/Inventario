@@ -84,5 +84,21 @@ def create_user():
 
     return "Usuario creado ✅"
 
+def crear_admin_inicial():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("SELECT * FROM users")
+    if cursor.fetchone() is None:
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ("admin", generate_password_hash("admin123"), "admin")
+        )
+        db.commit()
+
+    db.close()
+
+crear_admin_inicial()
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
