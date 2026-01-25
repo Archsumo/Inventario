@@ -102,3 +102,25 @@ crear_admin_inicial()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+    @app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect("/")
+
+    if session["role"] == "admin":
+        return """
+        <h2>Bienvenido al panel ADMIN 🔑</h2>
+        <a href="/add_product">Agregar producto</a><br>
+        <a href="/view_inventory">Ver inventario</a><br>
+        <a href="/view_history">Ver historial de cambios</a><br>
+        <a href="/create_user">Crear usuario</a><br>
+        <a href="/logout">Cerrar sesión</a>
+        """
+    else:
+        return """
+        <h2>Bienvenido al panel SUPERVISOR 👷</h2>
+        <a href="/view_inventory">Ver inventario</a><br>
+        <a href="/edit_quantities">Modificar cantidades</a><br>
+        <a href="/logout">Cerrar sesión</a>
+        """
+
