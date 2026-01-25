@@ -175,30 +175,42 @@ def view_users():
     """
 
 # ---------- ELIMINAR USUARIO (SOLO ADMIN) ----------
-@app.route("/delete_user", methods=["POST"])
-def delete_user():
-    if session.get("role") != "admin":
-        return "No autorizado ❌"
-
-    username = request.form["username"]
-
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("DELETE FROM users WHERE username = ?", (username,))
-    db.commit()
-    db.close()
-
-    return "Usuario eliminado ✅"
-
-@app.route("/delete_user_form")
+@app.route("/delete_user_form", methods=["GET", "POST"])
 def delete_user_form():
     if session.get("role") != "admin":
         return "No autorizado ❌"
 
-    return """
+    if request.method == "POST":
+        password = request.form["password"]
+        username = request.form["username"]
+
+        # Comprobar que la contraseña ingresada sea la correcta para eliminar un usuario
+        if password != "claveSecreta123":  # Aquí va la clave de seguridad
+            return "Contraseña incorrecta ❌"
+
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.commit()
+        db.close()
+
+        return "Usuario eliminado ✅"
+
+    # Obtener todos los usuarios para que admin elija a quién eliminar
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT username FROM users")
+    users = cursor.fetchall()
+    db.close()
+
+    return f"""
     <h2>Eliminar usuario</h2>
-    <form method="post" action="/delete_user">
-        Usuario a eliminar: <input name="username"><br>
+    <form method="post">
+        Introduce la clave de confirmación: <input name="password" type="password"><br>
+        Selecciona un usuario a eliminar: 
+        <select name="username">
+            {''.join([f'<option value="{user[0]}">{user[0]}</option>' for user in users])}
+        </select><br>
         <button>Eliminar</button>
     </form>
     <a href="/dashboard">Volver al Dashboard</a>
