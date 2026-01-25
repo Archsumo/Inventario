@@ -87,7 +87,22 @@ def dashboard():
         return redirect("/")
 
     if session["role"] == "admin":
-        return redirect("/select_state")  # Redirige a la selección de estado
+        return """
+        <h2>Bienvenido al panel ADMIN 🔑</h2>
+        <h3>Selecciona una opción:</h3>
+        
+        <!-- Opciones de gestión de usuarios -->
+        <a href="/create_user">Agregar usuario</a><br>
+        <a href="/view_users">Ver usuarios</a><br>
+        <a href="/delete_user_form">Eliminar usuario</a><br>
+        <a href="/change_password_form">Cambiar contraseña</a><br>
+        <a href="/change_username_form">Cambiar nombre de usuario</a><br><br>
+        
+        <!-- Opciones por estado -->
+        <a href="/select_state">Seleccionar estado</a><br><br>
+        
+        <a href="/logout">Cerrar sesión</a>
+        """
     else:
         return """
         <h2>Bienvenido al panel SUPERVISOR 👷</h2>
