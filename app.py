@@ -9,9 +9,12 @@ app.secret_key = "clave_super_secreta"
 def get_db():
     return sqlite3.connect("users.db")
 
+# Función que inicializa las tablas de la base de datos
 def init_db():
     db = get_db()
     cursor = db.cursor()
+
+    # Crear tabla de usuarios
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,6 +23,8 @@ def init_db():
             role TEXT
         )
     """)
+
+    # Crear tabla de inventario
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +32,8 @@ def init_db():
             quantity INTEGER
         )
     """)
+
+    # Crear tabla de historial de cambios
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,9 +42,11 @@ def init_db():
             timestamp TEXT
         )
     """)
+
     db.commit()
     db.close()
 
+# Inicializa las tablas al arrancar la app
 init_db()
 
 # ---------- LOGIN ----------
@@ -125,6 +134,11 @@ def add_product():
         cursor = db.cursor()
         cursor.execute("INSERT INTO inventory (product_name, quantity) VALUES (?, ?)",
                        (product_name, quantity))
+        
+        # Guardar en historial
+        cursor.execute("INSERT INTO history (user, action, timestamp) VALUES (?, ?, ?)",
+                       (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00"))
+        
         db.commit()
         db.close()
 
@@ -184,4 +198,3 @@ crear_admin_inicial()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-
