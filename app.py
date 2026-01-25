@@ -104,7 +104,7 @@ def select_state():
 
     if request.method == "POST":
         selected_state = request.form["state"]
-        return redirect(f"/view_inventory/{selected_state}")  # Redirige al inventario del estado seleccionado
+        return redirect(f"/state_dashboard/{selected_state}")  # Redirige a la vista del estado
 
     return """
     <h2>Selecciona un estado</h2>
@@ -116,6 +116,23 @@ def select_state():
         </select><br>
         <button>Seleccionar</button>
     </form>
+    """
+
+# ---------- PANEL DEL ESTADO ----------
+@app.route("/state_dashboard/<state>")
+def state_dashboard(state):
+    if "user" not in session:
+        return redirect("/")
+
+    return f"""
+    <h2>Panel de {state}</h2>
+    <h3>Selecciona una opción:</h3>
+    <a href="/add_product/{state}">Agregar producto</a><br>
+    <a href="/view_inventory/{state}">Ver inventario</a><br>
+    <a href="/camiones/{state}">Entradas y salidas de camiones</a><br>
+    <a href="/uniformes/{state}">Ver uniformes</a><br>
+    <a href="/view_history/{state}">Ver historial de cambios</a><br>
+    <a href="/logout">Cerrar sesión</a>
     """
 
 # ---------- CREAR USUARIO (SOLO ADMIN) ----------
@@ -137,16 +154,65 @@ def create_user():
 
     return "Usuario creado ✅"
 
+# ---------- VER USUARIOS (SOLO ADMIN) ----------
+@app.route("/view_users")
+def view_users():
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM users")
+    users = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Usuarios</h2>
+    <ul>
+        {''.join([f'<li>{user[1]} - {user[2]}</li>' for user in users])}
+    </ul>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- ELIMINAR USUARIO (SOLO ADMIN) ----------
+@app.route("/delete_user", methods=["POST"])
+def delete_user():
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    username = request.form["username"]
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+    db.commit()
+    db.close()
+
+    return "Usuario eliminado ✅"
+
+@app.route("/delete_user_form")
+def delete_user_form():
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    return """
+    <h2>Eliminar usuario</h2>
+    <form method="post" action="/delete_user">
+        Usuario a eliminar: <input name="username"><br>
+        <button>Eliminar</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
 # ---------- AGREGAR PRODUCTO (SOLO ADMIN) ----------
-@app.route("/add_product", methods=["GET", "POST"])
-def add_product():
+@app.route("/add_product/<state>", methods=["GET", "POST"])
+def add_product(state):
     if session.get("role") != "admin":
         return "No autorizado ❌"
 
     if request.method == "POST":
         product_name = request.form["product_name"]
         quantity = request.form["quantity"]
-        state = request.form["state"]
 
         db = get_db()
         cursor = db.cursor()
@@ -162,20 +228,14 @@ def add_product():
 
         return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
 
-    return """
-    <h2>Agregar Producto</h2>
+    return f"""
+    <h2>Agregar Producto en {state}</h2>
     <form method="post">
         Nombre del producto: <input name="product_name"><br>
         Cantidad: <input name="quantity"><br>
-        Estado: 
-        <select name="state">
-            <option value="GDL">Guadalajara</option>
-            <option value="SL">San Luis</option>
-            <option value="SLP">Silao</option>
-        </select><br>
         <button>Agregar</button>
     </form>
-    <a href="/dashboard">Volver al Dashboard</a>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
 
 # ---------- VER INVENTARIO POR ESTADO ----------
@@ -196,10 +256,10 @@ def view_inventory(state):
         {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in inventory])}
     </ul>
     <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/dashboard">Volver al Dashboard</a>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
 
-# ---------- VER HISTORIAL DE CAMBIOS POR ESTADO ----------
+# ---------- HISTORIAL DE CAMBIOS POR ESTADO ----------
 @app.route("/view_history/<state>")
 def view_history(state):
     if "user" not in session:
@@ -220,43 +280,7 @@ def view_history(state):
         {''.join([f'<li>{entry[1]} {entry[2]} | {entry[3]}</li>' for entry in history])}
     </ul>
     <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/dashboard">Volver al Dashboard</a>
-    """
-
-# ---------- GUARDIAS ----------
-@app.route("/guardias")
-def guardias():
-    if "user" not in session:
-        return redirect("/")
-
-    return """
-    <h2>Guardias</h2>
-    <p>Información sobre los guardias.</p>
-    <a href="/dashboard">Volver al Dashboard</a>
-    """
-
-# ---------- CAMIONES ----------
-@app.route("/camiones")
-def camiones():
-    if "user" not in session:
-        return redirect("/")
-
-    return """
-    <h2>Entradas y salidas de camiones</h2>
-    <p>Información sobre los camiones.</p>
-    <a href="/dashboard">Volver al Dashboard</a>
-    """
-
-# ---------- UNIFORMES ----------
-@app.route("/uniformes")
-def uniformes():
-    if "user" not in session:
-        return redirect("/")
-
-    return """
-    <h2>Uniformes</h2>
-    <p>Información sobre botas, camisas y otros uniformes.</p>
-    <a href="/dashboard">Volver al Dashboard</a>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
 
 # ---------- CERRAR SESIÓN ----------
