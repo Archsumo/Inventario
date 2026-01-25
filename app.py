@@ -87,10 +87,15 @@ def dashboard():
     if session["role"] == "admin":
         return """
         <h2>Bienvenido al panel ADMIN 🔑</h2>
+        <h3>Selecciona una opción:</h3>
         <a href="/add_product">Agregar producto</a><br>
         <a href="/view_inventory">Ver inventario</a><br>
         <a href="/view_history">Ver historial de cambios</a><br>
         <a href="/create_user">Crear usuario</a><br>
+        <a href="/guardias">Ver guardias</a><br>
+        <a href="/camiones">Ver entradas/salidas de camiones</a><br>
+        <a href="/uniformes">Ver uniformes</a><br>
+        <a href="/select_state">Seleccionar estado</a><br>
         <a href="/logout">Cerrar sesión</a>
         """
     else:
@@ -134,7 +139,7 @@ def add_product():
         cursor = db.cursor()
         cursor.execute("INSERT INTO inventory (product_name, quantity) VALUES (?, ?)",
                        (product_name, quantity))
-        
+
         # Guardar en historial
         cursor.execute("INSERT INTO history (user, action, timestamp) VALUES (?, ?, ?)",
                        (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00"))
@@ -142,7 +147,7 @@ def add_product():
         db.commit()
         db.close()
 
-        return "Producto agregado ✅"
+        return redirect("/view_inventory")  # Redirige al inventario después de agregar el producto
 
     return """
     <h2>Agregar Producto</h2>
@@ -151,6 +156,7 @@ def add_product():
         Cantidad: <input name="quantity"><br>
         <button>Agregar</button>
     </form>
+    <a href="/dashboard">Volver al Dashboard</a>  <!-- Link para regresar al dashboard -->
     """
 
 # ---------- VER INVENTARIO ----------
@@ -170,7 +176,89 @@ def view_inventory():
     <ul>
         {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in inventory])}
     </ul>
-    <a href="/dashboard">Volver</a>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- VER HISTORIAL ----------
+@app.route("/view_history")
+def view_history():
+    if "user" not in session:
+        return redirect("/")
+
+    if session["role"] != "admin":
+        return "No autorizado ❌"
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM history")
+    history = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Historial de cambios</h2>
+    <ul>
+        {''.join([f'<li>{entry[1]} {entry[2]} | {entry[3]}</li>' for entry in history])}
+    </ul>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- GUARDIAS ----------
+@app.route("/guardias")
+def guardias():
+    if "user" not in session:
+        return redirect("/")
+
+    return """
+    <h2>Guardias</h2>
+    <p>Información sobre los guardias.</p>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- CAMIONES ----------
+@app.route("/camiones")
+def camiones():
+    if "user" not in session:
+        return redirect("/")
+
+    return """
+    <h2>Entradas y salidas de camiones</h2>
+    <p>Información sobre los camiones.</p>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- UNIFORMES ----------
+@app.route("/uniformes")
+def uniformes():
+    if "user" not in session:
+        return redirect("/")
+
+    return """
+    <h2>Uniformes</h2>
+    <p>Información sobre botas, camisas y otros uniformes.</p>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- SELECCIONAR ESTADO ----------
+@app.route("/select_state", methods=["GET", "POST"])
+def select_state():
+    if "user" not in session:
+        return redirect("/")
+
+    if request.method == "POST":
+        selected_state = request.form["state"]
+        # Redirigir según el estado seleccionado
+        return redirect(f"/view_inventory/{selected_state}")
+
+    return """
+    <h2>Selecciona un estado</h2>
+    <form method="post">
+        <select name="state">
+            <option value="GDL">Guadalajara</option>
+            <option value="SL">San Luis</option>
+            <option value="SLP">Silao</option>
+        </select><br>
+        <button>Seleccionar</button>
+    </form>
     """
 
 # ---------- CERRAR SESIÓN ----------
