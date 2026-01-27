@@ -151,23 +151,35 @@ def state_dashboard(state):
     """
 
 # ---------- CREAR USUARIO (SOLO ADMIN) ----------
-@app.route("/create_user", methods=["POST"])
+@app.route("/create_user", methods=["GET", "POST"])
 def create_user():
     if session.get("role") != "admin":
         return "No autorizado ❌"
 
-    user = request.form["username"]
-    password = generate_password_hash(request.form["password"])
-    role = request.form["role"]
+    if request.method == "POST":
+        user = request.form["username"]
+        password = generate_password_hash(request.form["password"])
+        role = request.form["role"]
 
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                   (user, password, role))
-    db.commit()
-    db.close()
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                       (user, password, role))
+        db.commit()
+        db.close()
 
-    return "Usuario creado ✅"
+        return "Usuario creado ✅"
+
+    return """
+    <h2>Crear usuario</h2>
+    <form method="post">
+        Usuario: <input name="username"><br>
+        Contraseña: <input name="password" type="password"><br>
+        Rol: <input name="role"><br>
+        <button>Crear</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
 
 # ---------- VER USUARIOS (SOLO ADMIN) ----------
 @app.route("/view_users")
