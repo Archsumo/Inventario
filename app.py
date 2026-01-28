@@ -24,13 +24,12 @@ def init_db():
         )
     """)
 
-    # Crear tabla de inventario con las cantidades nuevas y enviadas
+    # Crear tabla de inventario
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_name TEXT,
             quantity INTEGER,
-            sent_quantity INTEGER,
             state TEXT
         )
     """)
@@ -138,7 +137,6 @@ def select_state():
         </select><br>
         <button>Seleccionar</button>
     </form>
-    <a href="/dashboard">Volver al panel ADMIN</a><br>
     """
 
 # ---------- PANEL DEL ESTADO ----------
@@ -146,11 +144,6 @@ def select_state():
 def state_dashboard(state):
     if "user" not in session:
         return redirect("/")
-
-    # Asegurarse de que el "state" es un estado válido
-    valid_states = ["GDL", "SL", "SLP", "EDOMEX", "MANZ", "AGUASCALIENTES"]
-    if state not in valid_states:
-        return "Estado no válido ❌"
 
     return f"""
     <h2>Panel de {state}</h2>
@@ -161,100 +154,79 @@ def state_dashboard(state):
     <a href="/uniformes/{state}">Ver uniformes</a><br>
     <a href="/view_history/{state}">Ver historial de cambios</a><br>
     <a href="/logout">Cerrar sesión</a>
-    <a href="/dashboard">Volver al panel ADMIN</a>
     """
 
-# ---------- AGREGAR PRODUCTO (SOLO ADMIN) ----------
-@app.route("/add_product/<state>", methods=["GET", "POST"])
-def add_product(state):
-    if session.get("role") != "admin":
-        return "No autorizado ❌"
-
-    if request.method == "POST":
-        product_name = request.form["product_name"]
-        quantity = int(request.form["quantity"])
-
-        # Verificar que los datos sean válidos
-        if not product_name or not quantity:
-            return "Faltan datos. Por favor, ingresa todos los campos."
-
-        try:
-            quantity = int(quantity)  # Asegurarse de que la cantidad sea un número entero
-        except ValueError:
-            return "La cantidad debe ser un número válido."
-
-        try:
-            db = get_db()
-            cursor = db.cursor()
-
-            # Insertar el producto en la base de datos
-            cursor.execute("INSERT INTO inventory (product_name, quantity, sent_quantity, state) VALUES (?, ?, ?, ?)",
-                           (product_name, quantity, 0, state))  # Inicializa la cantidad enviada en 0
-
-            # Guardar en historial
-            cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
-                           (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00", state))
-
-            db.commit()
-            db.close()
-
-            return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
-
-        except sqlite3.DatabaseError as e:
-            return f"Error en la base de datos: {e}"
-
-        except Exception as e:
-            return f"Ocurrió un error inesperado: {e}"
-
-    return f"""
-    <h2>Agregar Producto en {state}</h2>
-    <form method="post">
-        Nombre del producto: <input name="product_name"><br>
-        Cantidad: <input name="quantity"><br>
-        <button>Agregar</button>
-    </form>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-    """
-
-# ---------- HISTORIAL DE CAMBIOS POR ESTADO ----------
-@app.route("/view_history/<state>")
-def view_history(state):
+# ---------- CUSTODIAS ----------
+@app.route("/custodias")
+def custodias():
     if "user" not in session:
         return redirect("/")
 
-    # Validación para asegurarse de que el "state" es un valor válido
-    valid_states = ["GDL", "SL", "SLP", "EDOMEX", "MANZ", "AGUASCALIENTES"]
-    if state not in valid_states:
-        return "Estado no válido ❌"
-
-    # Verificar si el usuario tiene el rol adecuado (admin) para ver el historial
-    if session.get("role") != "admin":
+    if session["role"] != "admin":
         return "No autorizado ❌"
 
-    try:
+    return """
+    <h2>Gestión de Custodias</h2>
+    <h3>Selecciona una opción:</h3>
+    <a href="/add_custody">Agregar custodia</a><br>
+    <a href="/view_custody">Ver custodias</a><br>
+    <a href="/logout">Cerrar sesión</a>
+    """
+
+# ---------- AGREGAR CUSTODIA ----------
+@app.route("/add_custody", methods=["GET", "POST"])
+def add_custody():
+    if "user" not in session:
+        return redirect("/")
+
+    if session["role"] != "admin":
+        return "No autorizado ❌"
+
+    if request.method == "POST":
+        custody_name = request.form["custody_name"]
+        quantity = request.form["quantity"]
+
         db = get_db()
         cursor = db.cursor()
-
-        # Recuperar el historial de cambios para el estado específico
-        cursor.execute("SELECT * FROM history WHERE state = ?", (state,))
-        history = cursor.fetchall()
+        cursor.execute("INSERT INTO inventory (product_name, quantity, state) VALUES (?, ?, ?)",
+                       (custody_name, quantity, "Custodias"))  # Se asigna "Custodias" como estado
+        db.commit()
         db.close()
 
-        # Mostrar el historial
-        if not history:
-            return f"No hay historial de cambios en {state}."
+        return redirect("/custodias")
 
-        return f"""
-        <h2>Historial de cambios en {state}</h2>
-        <ul>
-            {''.join([f'<li>{entry[1]} | {entry[2]} | {entry[3]}</li>' for entry in history])}
-        </ul>
-        <a href="/select_state">Seleccionar otro estado</a><br>
-        <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-        """
+    return """
+    <h2>Agregar Custodia</h2>
+    <form method="post">
+        Nombre de la custodia: <input name="custody_name"><br>
+        Cantidad: <input name="quantity"><br>
+        <button>Agregar</button>
+    </form>
+    <a href="/custodias">Volver al panel de Custodias</a>
+    """
 
-    except Exception as e:
-        return f"Ocurrió un error: {e}"
+# ---------- VER CUSTODIAS ----------
+@app.route("/view_custody")
+def view_custody():
+    if "user" not in session:
+        return redirect("/")
+
+    if session["role"] != "admin":
+        return "No autorizado ❌"
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM inventory WHERE state = 'Custodias'")
+    custodias = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Custodias</h2>
+    <ul>
+        {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in custodias])}
+    </ul>
+    <a href="/custodias">Volver al panel de Custodias</a>
+    """
 
 # ---------- CERRAR SESIÓN ----------
 @app.route("/logout")
