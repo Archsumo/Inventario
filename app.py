@@ -137,6 +137,7 @@ def select_state():
         </select><br>
         <button>Seleccionar</button>
     </form>
+    <a href="/dashboard">Volver al panel ADMIN</a><br>
     """
 
 # ---------- PANEL DEL ESTADO ----------
@@ -154,6 +155,7 @@ def state_dashboard(state):
     <a href="/uniformes/{state}">Ver uniformes</a><br>
     <a href="/view_history/{state}">Ver historial de cambios</a><br>
     <a href="/logout">Cerrar sesión</a>
+    <a href="/dashboard">Volver al panel ADMIN</a>
     """
 
 # ---------- CUSTODIAS ----------
@@ -171,6 +173,7 @@ def custodias():
     <a href="/add_custody">Agregar custodia</a><br>
     <a href="/view_custody">Ver custodias</a><br>
     <a href="/logout">Cerrar sesión</a>
+    <a href="/dashboard">Volver al panel ADMIN</a>
     """
 
 # ---------- AGREGAR CUSTODIA ----------
@@ -202,7 +205,8 @@ def add_custody():
         Cantidad: <input name="quantity"><br>
         <button>Agregar</button>
     </form>
-    <a href="/custodias">Volver al panel de Custodias</a>
+    <a href="/custodias">Volver al panel de Custodias</a><br>
+    <a href="/dashboard">Volver al panel ADMIN</a>
     """
 
 # ---------- VER CUSTODIAS ----------
@@ -225,7 +229,8 @@ def view_custody():
     <ul>
         {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in custodias])}
     </ul>
-    <a href="/custodias">Volver al panel de Custodias</a>
+    <a href="/custodias">Volver al panel de Custodias</a><br>
+    <a href="/dashboard">Volver al panel ADMIN</a>
     """
 
 # ---------- CERRAR SESIÓN ----------
