@@ -24,12 +24,13 @@ def init_db():
         )
     """)
 
-    # Crear tabla de inventario
+    # Crear tabla de inventario con las cantidades nuevas y enviadas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_name TEXT,
             quantity INTEGER,
+            sent_quantity INTEGER,
             state TEXT
         )
     """)
@@ -140,97 +141,90 @@ def select_state():
     <a href="/dashboard">Volver al panel ADMIN</a><br>
     """
 
-# ---------- PANEL DEL ESTADO ----------
-@app.route("/state_dashboard/<state>")
-def state_dashboard(state):
-    if "user" not in session:
-        return redirect("/")
-
-    return f"""
-    <h2>Panel de {state}</h2>
-    <h3>Selecciona una opción:</h3>
-    <a href="/add_product/{state}">Agregar producto</a><br>
-    <a href="/view_inventory/{state}">Ver inventario</a><br>
-    <a href="/camiones/{state}">Entradas y salidas de camiones</a><br>
-    <a href="/uniformes/{state}">Ver uniformes</a><br>
-    <a href="/view_history/{state}">Ver historial de cambios</a><br>
-    <a href="/logout">Cerrar sesión</a>
-    <a href="/dashboard">Volver al panel ADMIN</a>
-    """
-
-# ---------- CUSTODIAS ----------
-@app.route("/custodias")
-def custodias():
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
-        return "No autorizado ❌"
-
-    return """
-    <h2>Gestión de Custodias</h2>
-    <h3>Selecciona una opción:</h3>
-    <a href="/add_custody">Agregar custodia</a><br>
-    <a href="/view_custody">Ver custodias</a><br>
-    <a href="/logout">Cerrar sesión</a>
-    <a href="/dashboard">Volver al panel ADMIN</a>
-    """
-
-# ---------- AGREGAR CUSTODIA ----------
-@app.route("/add_custody", methods=["GET", "POST"])
-def add_custody():
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
+# ---------- AGREGAR PRODUCTO (SOLO ADMIN) ----------
+@app.route("/add_product/<state>", methods=["GET", "POST"])
+def add_product(state):
+    if session.get("role") != "admin":
         return "No autorizado ❌"
 
     if request.method == "POST":
-        custody_name = request.form["custody_name"]
-        quantity = request.form["quantity"]
+        product_name = request.form["product_name"]
+        quantity = int(request.form["quantity"])
 
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO inventory (product_name, quantity, state) VALUES (?, ?, ?)",
-                       (custody_name, quantity, "Custodias"))  # Se asigna "Custodias" como estado
+        cursor.execute("INSERT INTO inventory (product_name, quantity, sent_quantity, state) VALUES (?, ?, ?, ?)",
+                       (product_name, quantity, 0, state))  # Inicializa la cantidad enviada en 0
         db.commit()
         db.close()
 
-        return redirect("/custodias")
+        return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
 
     return """
-    <h2>Agregar Custodia</h2>
+    <h2>Agregar Producto en {state}</h2>
     <form method="post">
-        Nombre de la custodia: <input name="custody_name"><br>
+        Nombre del producto: <input name="product_name"><br>
         Cantidad: <input name="quantity"><br>
         <button>Agregar</button>
     </form>
-    <a href="/custodias">Volver al panel de Custodias</a><br>
-    <a href="/dashboard">Volver al panel ADMIN</a>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
 
-# ---------- VER CUSTODIAS ----------
-@app.route("/view_custody")
-def view_custody():
+# ---------- EDITAR INVENTARIO (SOLO ADMIN) ----------
+@app.route("/edit_inventory/<state>", methods=["GET", "POST"])
+def edit_inventory(state):
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    if request.method == "POST":
+        product_name = request.form["product_name"]
+        adjustment = int(request.form["adjustment"])  # Se sumará o restará de la cantidad actual
+
+        db = get_db()
+        cursor = db.cursor()
+
+        # Actualiza la cantidad del producto en inventario
+        cursor.execute("""
+            UPDATE inventory
+            SET quantity = quantity + ?, sent_quantity = sent_quantity + ?
+            WHERE product_name = ? AND state = ?
+        """, (adjustment, adjustment, product_name, state))
+
+        db.commit()
+        db.close()
+
+        return redirect(f"/view_inventory/{state}")
+
+    return f"""
+    <h2>Editar inventario en {state}</h2>
+    <form method="post">
+        Producto: <input name="product_name"><br>
+        Ajuste (cantidad): <input name="adjustment"><br>
+        <button>Modificar cantidad</button>
+    </form>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+    """
+
+# ---------- VER INVENTARIO POR ESTADO ----------
+@app.route("/view_inventory/<state>")
+def view_inventory(state):
     if "user" not in session:
         return redirect("/")
 
-    if session["role"] != "admin":
-        return "No autorizado ❌"
-
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM inventory WHERE state = 'Custodias'")
-    custodias = cursor.fetchall()
+    cursor.execute("SELECT * FROM inventory WHERE state = ?", (state,))
+    inventory = cursor.fetchall()
     db.close()
 
     return f"""
-    <h2>Custodias</h2>
+    <h2>Inventario de {state}</h2>
     <ul>
-        {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in custodias])}
+        {''.join([f'<li>{item[1]}: {item[2]} - {item[3]} enviados</li>' for item in inventory])}
     </ul>
-    <a href="/custodias">Volver al panel de Custodias</a><br>
-    <a href="/dashboard">Volver al panel ADMIN</a>
+    <a href="/select_state">Seleccionar otro estado</a><br>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+    <a href="/edit_inventory/{state}">Editar inventario</a>
     """
 
 # ---------- CERRAR SESIÓN ----------
