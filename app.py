@@ -174,19 +174,37 @@ def add_product(state):
         product_name = request.form["product_name"]
         quantity = int(request.form["quantity"])
 
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute("INSERT INTO inventory (product_name, quantity, sent_quantity, state) VALUES (?, ?, ?, ?)",
-                       (product_name, quantity, 0, state))  # Inicializa la cantidad enviada en 0
-        db.commit()
-        db.close()
+        # Verificar que los datos sean válidos
+        if not product_name or not quantity:
+            return "Faltan datos. Por favor, ingresa todos los campos."
 
-        # Registrar la acción en el historial
-        cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
-                       (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00", state))
-        db.commit()
+        try:
+            quantity = int(quantity)  # Asegurarse de que la cantidad sea un número entero
+        except ValueError:
+            return "La cantidad debe ser un número válido."
 
-        return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
+        try:
+            db = get_db()
+            cursor = db.cursor()
+
+            # Insertar el producto en la base de datos
+            cursor.execute("INSERT INTO inventory (product_name, quantity, sent_quantity, state) VALUES (?, ?, ?, ?)",
+                           (product_name, quantity, 0, state))  # Inicializa la cantidad enviada en 0
+
+            # Guardar en historial
+            cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
+                           (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00", state))
+
+            db.commit()
+            db.close()
+
+            return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
+
+        except sqlite3.DatabaseError as e:
+            return f"Error en la base de datos: {e}"
+
+        except Exception as e:
+            return f"Ocurrió un error inesperado: {e}"
 
     return f"""
     <h2>Agregar Producto en {state}</h2>
@@ -258,30 +276,6 @@ def view_inventory(state):
     <a href="/select_state">Seleccionar otro estado</a><br>
     <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     <a href="/edit_inventory/{state}">Editar inventario</a>
-    """
-
-# ---------- HISTORIAL DE CAMBIOS POR ESTADO ----------
-@app.route("/view_history/<state>")
-def view_history(state):
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
-        return "No autorizado ❌"
-
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM history WHERE state = ?", (state,))
-    history = cursor.fetchall()
-    db.close()
-
-    return f"""
-    <h2>Historial de cambios en {state}</h2>
-    <ul>
-        {''.join([f'<li>{entry[1]} | {entry[2]} | {entry[3]}</li>' for entry in history])}
-    </ul>
-    <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
 
 # ---------- CERRAR SESIÓN ----------
