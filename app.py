@@ -243,83 +243,80 @@ def delete_user_form():
     <a href="/dashboard">Volver al Dashboard</a>
     """
 
-# ---------- AGREGAR PRODUCTO (SOLO ADMIN) ----------
-@app.route("/add_product/<state>", methods=["GET", "POST"])
-def add_product(state):
+# ---------- CAMBIAR CONTRASEÑA (SOLO ADMIN) ----------
+@app.route("/change_password_form", methods=["GET", "POST"])
+def change_password_form():
     if session.get("role") != "admin":
         return "No autorizado ❌"
 
     if request.method == "POST":
-        product_name = request.form["product_name"]
-        quantity = request.form["quantity"]
+        username = request.form["username"]
+        new_password = generate_password_hash(request.form["new_password"])
 
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO inventory (product_name, quantity, state) VALUES (?, ?, ?)",
-                       (product_name, quantity, state))
-
-        # Guardar en historial
-        cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
-                       (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00", state))
-        
+        cursor.execute("UPDATE users SET password = ? WHERE username = ?", (new_password, username))
         db.commit()
         db.close()
 
-        return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
+        return "Contraseña cambiada ✅"
 
-    return f"""
-    <h2>Agregar Producto en {state}</h2>
-    <form method="post">
-        Nombre del producto: <input name="product_name"><br>
-        Cantidad: <input name="quantity"><br>
-        <button>Agregar</button>
-    </form>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-    """
-
-# ---------- VER INVENTARIO POR ESTADO ----------
-@app.route("/view_inventory/<state>")
-def view_inventory(state):
-    if "user" not in session:
-        return redirect("/")
-
+    # Obtener todos los usuarios para que admin elija a quién cambiar la contraseña
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM inventory WHERE state = ?", (state,))
-    inventory = cursor.fetchall()
+    cursor.execute("SELECT username FROM users")
+    users = cursor.fetchall()
     db.close()
 
     return f"""
-    <h2>Inventario de {state}</h2>
-    <ul>
-        {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in inventory])}
-    </ul>
-    <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+    <h2>Cambiar contraseña</h2>
+    <form method="post">
+        Selecciona un usuario: 
+        <select name="username">
+            {''.join([f'<option value="{user[0]}">{user[0]}</option>' for user in users])}
+        </select><br>
+        Nueva contraseña: <input name="new_password" type="password"><br>
+        <button>Cambiar contraseña</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
     """
 
-# ---------- HISTORIAL DE CAMBIOS POR ESTADO ----------
-@app.route("/view_history/<state>")
-def view_history(state):
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
+# ---------- CAMBIAR NOMBRE DE USUARIO (SOLO ADMIN) ----------
+@app.route("/change_username_form", methods=["GET", "POST"])
+def change_username_form():
+    if session.get("role") != "admin":
         return "No autorizado ❌"
 
+    if request.method == "POST":
+        old_username = request.form["old_username"]
+        new_username = request.form["new_username"]
+
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("UPDATE users SET username = ? WHERE username = ?", (new_username, old_username))
+        db.commit()
+        db.close()
+
+        return "Nombre de usuario cambiado ✅"
+
+    # Obtener todos los usuarios para que admin elija a quién cambiar el nombre
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM history WHERE state = ?", (state,))
-    history = cursor.fetchall()
+    cursor.execute("SELECT username FROM users")
+    users = cursor.fetchall()
     db.close()
 
     return f"""
-    <h2>Historial de cambios en {state}</h2>
-    <ul>
-        {''.join([f'<li>{entry[1]} {entry[2]} | {entry[3]}</li>' for entry in history])}
-    </ul>
-    <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+    <h2>Cambiar nombre de usuario</h2>
+    <form method="post">
+        Selecciona un usuario: 
+        <select name="old_username">
+            {''.join([f'<option value="{user[0]}">{user[0]}</option>' for user in users])}
+        </select><br>
+        Nuevo nombre de usuario: <input name="new_username"><br>
+        <button>Cambiar nombre</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
     """
 
 # ---------- CERRAR SESIÓN ----------
