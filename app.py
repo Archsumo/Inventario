@@ -101,9 +101,6 @@ def dashboard():
         <!-- Opciones por estado -->
         <a href="/select_state">Seleccionar estado</a><br><br>
         
-        <!-- Nueva opción de Custodias -->
-        <a href="/custodias">Custodias</a><br><br>
-        
         <a href="/logout">Cerrar sesión</a>
         """
     else:
@@ -131,9 +128,6 @@ def select_state():
             <option value="GDL">Guadalajara</option>
             <option value="SL">San Luis</option>
             <option value="SLP">Silao</option>
-            <option value="EDOMEX">Estado de México</option>
-            <option value="MANZ">Manzanillo</option>
-            <option value="AGUASCALIENTES">Aguascalientes</option>
         </select><br>
         <button>Seleccionar</button>
     </form>
@@ -156,76 +150,173 @@ def state_dashboard(state):
     <a href="/logout">Cerrar sesión</a>
     """
 
-# ---------- CUSTODIAS ----------
-@app.route("/custodias")
-def custodias():
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
-        return "No autorizado ❌"
-
-    return """
-    <h2>Gestión de Custodias</h2>
-    <h3>Selecciona una opción:</h3>
-    <a href="/add_custody">Agregar custodia</a><br>
-    <a href="/view_custody">Ver custodias</a><br>
-    <a href="/logout">Cerrar sesión</a>
-    """
-
-# ---------- AGREGAR CUSTODIA ----------
-@app.route("/add_custody", methods=["GET", "POST"])
-def add_custody():
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
+# ---------- CREAR USUARIO (SOLO ADMIN) ----------
+@app.route("/create_user", methods=["GET", "POST"])
+def create_user():
+    if session.get("role") != "admin":
         return "No autorizado ❌"
 
     if request.method == "POST":
-        custody_name = request.form["custody_name"]
-        quantity = request.form["quantity"]
+        user = request.form["username"]
+        password = generate_password_hash(request.form["password"])
+        role = request.form["role"]
 
         db = get_db()
         cursor = db.cursor()
-        cursor.execute("INSERT INTO inventory (product_name, quantity, state) VALUES (?, ?, ?)",
-                       (custody_name, quantity, "Custodias"))  # Se asigna "Custodias" como estado
+        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                       (user, password, role))
         db.commit()
         db.close()
 
-        return redirect("/custodias")
+        return "Usuario creado ✅"
 
     return """
-    <h2>Agregar Custodia</h2>
+    <h2>Crear usuario</h2>
     <form method="post">
-        Nombre de la custodia: <input name="custody_name"><br>
-        Cantidad: <input name="quantity"><br>
-        <button>Agregar</button>
+        Usuario: <input name="username"><br>
+        Contraseña: <input name="password" type="password"><br>
+        Rol: <input name="role"><br>
+        <button>Crear</button>
     </form>
-    <a href="/custodias">Volver al panel de Custodias</a>
+    <a href="/dashboard">Volver al Dashboard</a>
     """
 
-# ---------- VER CUSTODIAS ----------
-@app.route("/view_custody")
-def view_custody():
-    if "user" not in session:
-        return redirect("/")
-
-    if session["role"] != "admin":
+# ---------- VER USUARIOS (SOLO ADMIN) ----------
+@app.route("/view_users")
+def view_users():
+    if session.get("role") != "admin":
         return "No autorizado ❌"
 
     db = get_db()
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM inventory WHERE state = 'Custodias'")
-    custodias = cursor.fetchall()
+    cursor.execute("SELECT * FROM users")
+    users = cursor.fetchall()
     db.close()
 
     return f"""
-    <h2>Custodias</h2>
+    <h2>Usuarios</h2>
     <ul>
-        {''.join([f'<li>{item[1]}: {item[2]}</li>' for item in custodias])}
+        {''.join([f'<li>{user[1]} - {user[2]}</li>' for user in users])}
     </ul>
-    <a href="/custodias">Volver al panel de Custodias</a>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- ELIMINAR USUARIO (SOLO ADMIN) ----------
+@app.route("/delete_user_form", methods=["GET", "POST"])
+def delete_user_form():
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    if request.method == "POST":
+        password = request.form["password"]
+        username = request.form["username"]
+
+        # Comprobar que la contraseña ingresada sea la correcta para eliminar un usuario
+        if password != "claveSecreta123":  # Aquí va la clave de seguridad
+            return "Contraseña incorrecta ❌"
+
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.commit()
+        db.close()
+
+        return "Usuario eliminado ✅"
+
+    # Obtener todos los usuarios para que admin elija a quién eliminar
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT username FROM users")
+    users = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Eliminar usuario</h2>
+    <form method="post">
+        Introduce la clave de confirmación: <input name="password" type="password"><br>
+        Selecciona un usuario a eliminar: 
+        <select name="username">
+            {''.join([f'<option value="{user[0]}">{user[0]}</option>' for user in users])}
+        </select><br>
+        <button>Eliminar</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- CAMBIAR CONTRASEÑA (SOLO ADMIN) ----------
+@app.route("/change_password_form", methods=["GET", "POST"])
+def change_password_form():
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    if request.method == "POST":
+        username = request.form["username"]
+        new_password = generate_password_hash(request.form["new_password"])
+
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("UPDATE users SET password = ? WHERE username = ?", (new_password, username))
+        db.commit()
+        db.close()
+
+        return "Contraseña cambiada ✅"
+
+    # Obtener todos los usuarios para que admin elija a quién cambiar la contraseña
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT username FROM users")
+    users = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Cambiar contraseña</h2>
+    <form method="post">
+        Selecciona un usuario: 
+        <select name="username">
+            {''.join([f'<option value="{user[0]}">{user[0]}</option>' for user in users])}
+        </select><br>
+        Nueva contraseña: <input name="new_password" type="password"><br>
+        <button>Cambiar contraseña</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
+    """
+
+# ---------- CAMBIAR NOMBRE DE USUARIO (SOLO ADMIN) ----------
+@app.route("/change_username_form", methods=["GET", "POST"])
+def change_username_form():
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    if request.method == "POST":
+        old_username = request.form["old_username"]
+        new_username = request.form["new_username"]
+
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("UPDATE users SET username = ? WHERE username = ?", (new_username, old_username))
+        db.commit()
+        db.close()
+
+        return "Nombre de usuario cambiado ✅"
+
+    # Obtener todos los usuarios para que admin elija a quién cambiar el nombre
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT username FROM users")
+    users = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Cambiar nombre de usuario</h2>
+    <form method="post">
+        Selecciona un usuario: 
+        <select name="old_username">
+            {''.join([f'<option value="{user[0]}">{user[0]}</option>' for user in users])}
+        </select><br>
+        Nuevo nombre de usuario: <input name="new_username"><br>
+        <button>Cambiar nombre</button>
+    </form>
+    <a href="/dashboard">Volver al Dashboard</a>
     """
 
 # ---------- CERRAR SESIÓN ----------
