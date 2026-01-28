@@ -224,27 +224,49 @@ def edit_inventory(state):
 
     if request.method == "POST":
         product_name = request.form["product_name"]
-        adjustment = int(request.form["adjustment"])  # Se sumará o restará de la cantidad actual
+        adjustment = request.form["adjustment"]
 
-        db = get_db()
-        cursor = db.cursor()
+        # Verificar que los datos sean válidos
+        if not product_name or not adjustment:
+            return "Faltan datos. Por favor, ingresa todos los campos."
 
-        # Actualiza la cantidad del producto en inventario
-        cursor.execute("""
-            UPDATE inventory
-            SET quantity = quantity + ?, sent_quantity = sent_quantity + ?
-            WHERE product_name = ? AND state = ?
-        """, (adjustment, adjustment, product_name, state))
+        try:
+            adjustment = int(adjustment)  # Asegurarse de que la cantidad sea un número entero
+        except ValueError:
+            return "La cantidad debe ser un número válido."
 
-        db.commit()
-        db.close()
+        try:
+            db = get_db()
+            cursor = db.cursor()
 
-        # Registrar la acción en el historial
-        cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
-                       (session["user"], f"Editó {product_name}, ajuste de {adjustment}", "2025-01-01 12:00", state))
-        db.commit()
+            # Verificar si el producto existe en el inventario
+            cursor.execute("SELECT * FROM inventory WHERE product_name = ? AND state = ?", (product_name, state))
+            product = cursor.fetchone()
 
-        return redirect(f"/view_inventory/{state}")
+            if not product:
+                return "Producto no encontrado en este estado ❌"
+
+            # Actualizar la cantidad en el inventario
+            cursor.execute("""
+                UPDATE inventory
+                SET quantity = quantity + ?, sent_quantity = sent_quantity + ?
+                WHERE product_name = ? AND state = ?
+            """, (adjustment, adjustment, product_name, state))
+
+            # Guardar en el historial
+            cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
+                           (session["user"], f"Editó {product_name}, ajuste de {adjustment}", "2025-01-01 12:00", state))
+
+            db.commit()
+            db.close()
+
+            return redirect(f"/view_inventory/{state}")
+
+        except sqlite3.DatabaseError as e:
+            return f"Error en la base de datos: {e}"
+
+        except Exception as e:
+            return f"Ocurrió un error inesperado: {e}"
 
     return f"""
     <h2>Editar inventario en {state}</h2>
@@ -255,6 +277,7 @@ def edit_inventory(state):
     </form>
     <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
+
 
 # ---------- VER INVENTARIO POR ESTADO ----------
 @app.route("/view_inventory/<state>")
