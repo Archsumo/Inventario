@@ -181,6 +181,11 @@ def add_product(state):
         db.commit()
         db.close()
 
+        # Registrar la acción en el historial
+        cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
+                       (session["user"], f"Agregó {product_name} con cantidad {quantity}", "2025-01-01 12:00", state))
+        db.commit()
+
         return redirect(f"/view_inventory/{state}")  # Redirige al inventario del estado seleccionado
 
     return f"""
@@ -191,28 +196,6 @@ def add_product(state):
         <button>Agregar</button>
     </form>
     <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-    """
-
-# ---------- VER INVENTARIO POR ESTADO ----------
-@app.route("/view_inventory/<state>")
-def view_inventory(state):
-    if "user" not in session:
-        return redirect("/")
-
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM inventory WHERE state = ?", (state,))
-    inventory = cursor.fetchall()
-    db.close()
-
-    return f"""
-    <h2>Inventario de {state}</h2>
-    <ul>
-        {''.join([f'<li>{item[1]}: {item[2]} - {item[3]} enviados</li>' for item in inventory])}
-    </ul>
-    <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-    <a href="/edit_inventory/{state}">Editar inventario</a>
     """
 
 # ---------- EDITAR INVENTARIO (SOLO ADMIN) ----------
@@ -238,6 +221,11 @@ def edit_inventory(state):
         db.commit()
         db.close()
 
+        # Registrar la acción en el historial
+        cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
+                       (session["user"], f"Editó {product_name}, ajuste de {adjustment}", "2025-01-01 12:00", state))
+        db.commit()
+
         return redirect(f"/view_inventory/{state}")
 
     return f"""
@@ -248,6 +236,28 @@ def edit_inventory(state):
         <button>Modificar cantidad</button>
     </form>
     <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+    """
+
+# ---------- VER INVENTARIO POR ESTADO ----------
+@app.route("/view_inventory/<state>")
+def view_inventory(state):
+    if "user" not in session:
+        return redirect("/")
+
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM inventory WHERE state = ?", (state,))
+    inventory = cursor.fetchall()
+    db.close()
+
+    return f"""
+    <h2>Inventario de {state}</h2>
+    <ul>
+        {''.join([f'<li>{item[1]}: {item[2]} disponibles, {item[3]} enviados</li>' for item in inventory])}
+    </ul>
+    <a href="/select_state">Seleccionar otro estado</a><br>
+    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+    <a href="/edit_inventory/{state}">Editar inventario</a>
     """
 
 # ---------- HISTORIAL DE CAMBIOS POR ESTADO ----------
@@ -268,7 +278,7 @@ def view_history(state):
     return f"""
     <h2>Historial de cambios en {state}</h2>
     <ul>
-        {''.join([f'<li>{entry[1]} {entry[2]} | {entry[3]}</li>' for entry in history])}
+        {''.join([f'<li>{entry[1]} | {entry[2]} | {entry[3]}</li>' for entry in history])}
     </ul>
     <a href="/select_state">Seleccionar otro estado</a><br>
     <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
