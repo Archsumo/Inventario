@@ -216,90 +216,45 @@ def add_product(state):
     <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
     """
 
-# ---------- EDITAR INVENTARIO (SOLO ADMIN) ----------
-@app.route("/edit_inventory/<state>", methods=["GET", "POST"])
-def edit_inventory(state):
-    if session.get("role") != "admin":
-        return "No autorizado ❌"
-
-    if request.method == "POST":
-        product_name = request.form["product_name"]
-        adjustment = request.form["adjustment"]
-
-        # Verificar que los datos sean válidos
-        if not product_name or not adjustment:
-            return "Faltan datos. Por favor, ingresa todos los campos."
-
-        try:
-            adjustment = int(adjustment)  # Asegurarse de que la cantidad sea un número entero
-        except ValueError:
-            return "La cantidad debe ser un número válido."
-
-        try:
-            db = get_db()
-            cursor = db.cursor()
-
-            # Verificar si el producto existe en el inventario
-            cursor.execute("SELECT * FROM inventory WHERE product_name = ? AND state = ?", (product_name, state))
-            product = cursor.fetchone()
-
-            if not product:
-                return "Producto no encontrado en este estado ❌"
-
-            # Actualizar la cantidad en el inventario
-            cursor.execute("""
-                UPDATE inventory
-                SET quantity = quantity + ?, sent_quantity = sent_quantity + ?
-                WHERE product_name = ? AND state = ?
-            """, (adjustment, adjustment, product_name, state))
-
-            # Guardar en el historial
-            cursor.execute("INSERT INTO history (user, action, timestamp, state) VALUES (?, ?, ?, ?)",
-                           (session["user"], f"Editó {product_name}, ajuste de {adjustment}", "2025-01-01 12:00", state))
-
-            db.commit()
-            db.close()
-
-            return redirect(f"/view_inventory/{state}")
-
-        except sqlite3.DatabaseError as e:
-            return f"Error en la base de datos: {e}"
-
-        except Exception as e:
-            return f"Ocurrió un error inesperado: {e}"
-
-    return f"""
-    <h2>Editar inventario en {state}</h2>
-    <form method="post">
-        Producto: <input name="product_name"><br>
-        Ajuste (cantidad): <input name="adjustment"><br>
-        <button>Modificar cantidad</button>
-    </form>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-    """
-
-
-# ---------- VER INVENTARIO POR ESTADO ----------
-@app.route("/view_inventory/<state>")
-def view_inventory(state):
+# ---------- HISTORIAL DE CAMBIOS POR ESTADO ----------
+@app.route("/view_history/<state>")
+def view_history(state):
     if "user" not in session:
         return redirect("/")
 
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM inventory WHERE state = ?", (state,))
-    inventory = cursor.fetchall()
-    db.close()
+    # Validación para asegurarse de que el "state" es un valor válido
+    valid_states = ["GDL", "SL", "SLP", "EDOMEX", "MANZ", "AGUASCALIENTES"]
+    if state not in valid_states:
+        return "Estado no válido ❌"
 
-    return f"""
-    <h2>Inventario de {state}</h2>
-    <ul>
-        {''.join([f'<li>{item[1]}: {item[2]} disponibles, {item[3]} enviados</li>' for item in inventory])}
-    </ul>
-    <a href="/select_state">Seleccionar otro estado</a><br>
-    <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
-    <a href="/edit_inventory/{state}">Editar inventario</a>
-    """
+    # Verificar si el usuario tiene el rol adecuado (admin) para ver el historial
+    if session.get("role") != "admin":
+        return "No autorizado ❌"
+
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        # Recuperar el historial de cambios para el estado específico
+        cursor.execute("SELECT * FROM history WHERE state = ?", (state,))
+        history = cursor.fetchall()
+        db.close()
+
+        # Mostrar el historial
+        if not history:
+            return f"No hay historial de cambios en {state}."
+
+        return f"""
+        <h2>Historial de cambios en {state}</h2>
+        <ul>
+            {''.join([f'<li>{entry[1]} | {entry[2]} | {entry[3]}</li>' for entry in history])}
+        </ul>
+        <a href="/select_state">Seleccionar otro estado</a><br>
+        <a href="/state_dashboard/{state}">Volver al Panel de {state}</a>
+        """
+
+    except Exception as e:
+        return f"Ocurrió un error: {e}"
 
 # ---------- CERRAR SESIÓN ----------
 @app.route("/logout")
