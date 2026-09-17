@@ -1,0 +1,26 @@
+def crear_admin():
+
+    admin = User.query.filter_by(
+        username="admin"
+    ).first()
+
+    if not admin:
+
+        nuevo_admin = User(
+            username="admin",
+            role="admin"
+        )
+
+        nuevo_admin.set_password(
+            "admin123"
+        )
+
+        db.session.add(
+            nuevo_admin
+        )
+
+        db.session.commit()
+
+        print(
+            "ADMIN CREADO"
+        )
