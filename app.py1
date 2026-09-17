@@ -1,1 +1,44 @@
+from flask import Flask
+from flask import render_template
+from flask import request
+from flask import redirect
+from flask import url_for
+from flask import flash
 
+from flask_sqlalchemy import SQLAlchemy
+
+from flask_login import LoginManager
+from flask_login import UserMixin
+from flask_login import login_user
+from flask_login import logout_user
+from flask_login import login_required
+from flask_login import current_user
+
+from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash
+
+import os
+
+app = Flask(_name_)
+
+app.config["SECRET_KEY"] = os.getenv(
+    "SECRET_KEY",
+    "cambiar-esta-clave"
+)
+
+database_url = os.getenv("DATABASE_URL")
+
+if database_url:
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+login_manager = LoginManager()
+
+login_manager.init_app(app)
+
+login_manager.login_view = "login"
